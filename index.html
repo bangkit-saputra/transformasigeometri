@@ -1,0 +1,1519 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Misi Transformasi Geometri</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- p5.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.6.0/p5.js"></script>
+    
+    <!-- Canvas Confetti -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#3b82f6',
+                        secondary: '#10b981',
+                        accent: '#f59e0b',
+                        dark: '#1e293b'
+                    },
+                    fontFamily: {
+                        sans: ['Nunito', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap');
+        body { font-family: 'Nunito', sans-serif; }
+        .tab-active { border-bottom: 4px solid #3b82f6; color: #3b82f6; font-weight: bold; }
+        .tab-inactive { color: #64748b; font-weight: 600; }
+        .tab-inactive:hover { color: #3b82f6; }
+        
+        /* Custom Scrollbar for side panel */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    </style>
+</head>
+<body class="bg-slate-50 min-h-screen flex flex-col text-slate-800 overflow-x-hidden">
+
+    <!-- Header -->
+    <header class="bg-white shadow-md py-4 px-6 sticky top-0 z-50 flex justify-between items-center border-b-4 border-primary">
+        <div class="flex items-center gap-3">
+            <div class="bg-primary text-white p-2 rounded-lg shadow-sm">
+                <i class="fas fa-shapes text-xl"></i>
+            </div>
+            <h1 class="text-2xl font-bold text-dark hidden sm:block">Misi Transformasi Geometri</h1>
+            <h1 class="text-xl font-bold text-dark sm:hidden">Transformasi</h1>
+        </div>
+        <div id="score-container" class="hidden flex-row gap-4 items-center bg-yellow-100 px-4 py-2 rounded-full border-2 border-yellow-400 text-yellow-800 font-bold shadow-sm">
+            <span><i class="fas fa-star text-accent"></i> Level: <span id="level-display">1</span></span>
+        </div>
+    </header>
+
+    <!-- Main Layout -->
+    <main class="flex-1 flex flex-col lg:flex-row p-4 lg:p-6 gap-6 w-full max-w-screen-2xl mx-auto">
+        
+        <!-- Left: Canvas Area -->
+        <section id="sec-canvas" class="w-full lg:w-2/3 flex flex-col gap-3">
+            <div class="bg-white rounded-2xl shadow-lg p-2 border border-slate-200 flex-1 relative min-h-[500px]" id="canvas-container">
+                <!-- p5.js canvas will be injected here -->
+                <div id="mission-toast" class="absolute top-4 left-1/2 transform -translate-x-1/2 bg-slate-800 text-white px-6 py-3 rounded-full shadow-xl font-semibold opacity-0 transition-opacity duration-300 pointer-events-none z-10 text-center w-max max-w-[90%]">
+                    <!-- Mission text -->
+                </div>
+            </div>
+            <div class="flex justify-between items-center px-2">
+                <p class="text-sm text-slate-500"><i class="fas fa-info-circle mr-1"></i> Arahkan kursor ke grid untuk melihat koordinat.</p>
+                <button onclick="resetShape()" class="text-rose-500 hover:text-rose-700 font-semibold text-sm transition-colors">
+                    <i class="fas fa-undo mr-1"></i> Reset Posisi
+                </button>
+            </div>
+        </section>
+
+        <!-- Right: Control Panel -->
+        <section id="sec-controls" class="w-full lg:w-1/3 bg-white rounded-2xl shadow-lg border border-slate-200 flex flex-col h-full lg:max-h-[calc(100vh-8rem)]">
+            
+            <!-- Tabs -->
+            <div class="flex border-b border-slate-200">
+                <button onclick="switchMode('explore')" id="tab-explore" class="flex-1 py-4 text-center tab-active transition-all duration-300">
+                    <i class="fas fa-compass mr-2"></i>Eksplorasi
+                </button>
+                <button onclick="switchMode('challenge')" id="tab-challenge" class="flex-1 py-4 text-center tab-inactive transition-all duration-300">
+                    <i class="fas fa-gamepad mr-2"></i>Tantangan
+                </button>
+                <button onclick="switchMode('minigames')" id="tab-minigame" class="flex-1 py-4 text-center tab-inactive transition-all duration-300 border-l border-slate-200">
+                    <i class="fas fa-brain mr-2"></i>Latihan
+                </button>
+            </div>
+
+            <!-- Controls Scrollable Area -->
+            <div class="p-5 flex-1 overflow-y-auto flex flex-col gap-6">
+                
+                <div id="challenge-info" class="hidden bg-indigo-50 border border-indigo-200 rounded-xl p-4 text-indigo-900 shadow-inner">
+                    <h3 class="font-bold mb-1"><i class="fas fa-flag-checkered mr-2 text-indigo-600"></i>Misi Saat Ini:</h3>
+                    <p id="challenge-desc" class="text-sm">Gunakan panel di bawah untuk menggerakkan bangun datar hijau agar tepat menempel pada siluet target putus-putus!</p>
+                </div>
+
+                <!-- Translasi -->
+                <div class="bg-slate-50 border border-slate-200 rounded-xl p-4 transition hover:border-blue-300 hover:shadow-md">
+                    <h3 class="font-bold text-slate-700 mb-3 flex items-center"><i class="fas fa-arrows-alt text-blue-500 w-6"></i> Translasi (Pergeseran)</h3>
+                    <div class="grid grid-cols-2 gap-3 mb-3">
+                        <div>
+                            <label class="text-xs text-slate-500 font-semibold">Sumbu X (Kanan/Kiri)</label>
+                            <input type="number" id="trans-x" value="2" class="w-full px-3 py-2 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div>
+                            <label class="text-xs text-slate-500 font-semibold">Sumbu Y (Atas/Bawah)</label>
+                            <input type="number" id="trans-y" value="3" class="w-full px-3 py-2 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                    </div>
+                    <button onclick="applyTransform('translate')" class="w-full bg-blue-100 text-blue-700 hover:bg-blue-600 hover:text-white font-bold py-2 px-4 rounded-lg transition-colors">
+                        Terapkan Translasi
+                    </button>
+                </div>
+
+                <!-- Refleksi -->
+                <div class="bg-slate-50 border border-slate-200 rounded-xl p-4 transition hover:border-emerald-300 hover:shadow-md">
+                    <h3 class="font-bold text-slate-700 mb-3 flex items-center"><i class="fas fa-adjust text-emerald-500 w-6"></i> Refleksi (Pencerminan)</h3>
+                    <div class="mb-3">
+                        <label class="text-xs text-slate-500 font-semibold">Sumbu Cermin</label>
+                        <select id="reflect-axis" onchange="toggleReflectParams()" class="w-full px-3 py-2 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white">
+                            <option value="x">Sumbu X (y = 0)</option>
+                            <option value="y">Sumbu Y (x = 0)</option>
+                            <option value="origin">Titik Asal (0,0)</option>
+                            <option value="yx">Garis y = x</option>
+                            <option value="y-x">Garis y = -x</option>
+                            <option value="xh">Garis x = h</option>
+                            <option value="yk">Garis y = k</option>
+                            <option value="point">Titik (a, b)</option>
+                        </select>
+                    </div>
+                    <div id="ref-params-h" class="hidden mb-3">
+                        <label class="text-xs text-slate-500 font-semibold">Nilai h</label>
+                        <input type="number" id="ref-h" value="2" class="w-full px-3 py-2 rounded-lg border border-slate-300">
+                    </div>
+                    <div id="ref-params-k" class="hidden mb-3">
+                        <label class="text-xs text-slate-500 font-semibold">Nilai k</label>
+                        <input type="number" id="ref-k" value="2" class="w-full px-3 py-2 rounded-lg border border-slate-300">
+                    </div>
+                    <div id="ref-params-ab" class="hidden grid-cols-2 gap-3 mb-3">
+                        <div>
+                            <label class="text-xs text-slate-500 font-semibold">Nilai a</label>
+                            <input type="number" id="ref-a" value="2" class="w-full px-3 py-2 rounded-lg border border-slate-300">
+                        </div>
+                        <div>
+                            <label class="text-xs text-slate-500 font-semibold">Nilai b</label>
+                            <input type="number" id="ref-b" value="2" class="w-full px-3 py-2 rounded-lg border border-slate-300">
+                        </div>
+                    </div>
+                    <button onclick="applyTransform('reflect')" class="w-full bg-emerald-100 text-emerald-700 hover:bg-emerald-600 hover:text-white font-bold py-2 px-4 rounded-lg transition-colors">
+                        Terapkan Refleksi
+                    </button>
+                </div>
+
+                <!-- Rotasi -->
+                <div class="bg-slate-50 border border-slate-200 rounded-xl p-4 transition hover:border-amber-300 hover:shadow-md">
+                    <h3 class="font-bold text-slate-700 mb-3 flex items-center"><i class="fas fa-sync-alt text-amber-500 w-6"></i> Rotasi (Perputaran)</h3>
+                    <div class="grid grid-cols-2 gap-3 mb-3">
+                        <div>
+                            <label class="text-xs text-slate-500 font-semibold">Sudut (Derajat)</label>
+                            <select id="rot-angle" class="w-full px-3 py-2 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white">
+                                <option value="90">90&deg;</option>
+                                <option value="180">180&deg;</option>
+                                <option value="270">270&deg;</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="text-xs text-slate-500 font-semibold">Arah</label>
+                            <select id="rot-dir" class="w-full px-3 py-2 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white">
+                                <option value="ccw">Berlawanan Jam (+)</option>
+                                <option value="cw">Searah Jam (-)</option>
+                            </select>
+                        </div>
+                    </div>
+                    <button onclick="applyTransform('rotate')" class="w-full bg-amber-100 text-amber-700 hover:bg-amber-500 hover:text-white font-bold py-2 px-4 rounded-lg transition-colors">
+                        Terapkan Rotasi
+                    </button>
+                </div>
+
+                <!-- Dilatasi -->
+                <div class="bg-slate-50 border border-slate-200 rounded-xl p-4 transition hover:border-purple-300 hover:shadow-md">
+                    <h3 class="font-bold text-slate-700 mb-3 flex items-center"><i class="fas fa-expand-arrows-alt text-purple-500 w-6"></i> Dilatasi (Skala)</h3>
+                    <div class="mb-3">
+                        <label class="text-xs text-slate-500 font-semibold">Faktor Skala (k)</label>
+                        <input type="number" id="dil-k" value="2" step="0.5" class="w-full px-3 py-2 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-purple-500">
+                    </div>
+                    <button onclick="applyTransform('dilate')" class="w-full bg-purple-100 text-purple-700 hover:bg-purple-600 hover:text-white font-bold py-2 px-4 rounded-lg transition-colors">
+                        Terapkan Dilatasi
+                    </button>
+                </div>
+
+            </div>
+        </section>
+
+        <!-- NEW LATIHAN SOAL / MINIGAMES SECTION -->
+        <section id="sec-minigames" class="hidden w-full bg-white rounded-2xl shadow-lg border border-slate-200 flex flex-col h-full overflow-hidden min-h-[500px]">
+            <div class="bg-primary text-white p-4 font-bold text-lg flex justify-between items-center overflow-x-auto">
+                <span class="whitespace-nowrap"><i class="fas fa-gamepad mr-2"></i> Latihan Soal</span>
+                <div class="flex gap-2 min-w-max ml-4">
+                    <button onclick="switchGame(1)" id="btn-game-1" class="bg-white/20 hover:bg-white/40 px-3 py-1 rounded">Drag & Drop</button>
+                    <button onclick="switchGame(2)" id="btn-game-2" class="bg-white/20 hover:bg-white/40 px-3 py-1 rounded">Drag Words</button>
+                    <button onclick="switchGame(3)" id="btn-game-3" class="bg-white/20 hover:bg-white/40 px-3 py-1 rounded">Fill Words</button>
+                    <button onclick="switchGame(4)" id="btn-game-4" class="bg-white/20 hover:bg-white/40 px-3 py-1 rounded">Tebak Gambar</button>
+                    <button onclick="switchGame(5)" id="btn-game-5" class="bg-white/20 hover:bg-white/40 px-3 py-1 rounded">Evaluasi HOTS</button>
+                    <button onclick="switchGame(6)" id="btn-game-6" class="bg-amber-500 hover:bg-amber-600 px-3 py-1 rounded shadow-sm text-white ml-2"><i class="fas fa-chart-bar mr-1"></i> Hasil Evaluasi</button>
+                </div>
+            </div>
+            
+            <div class="p-6 flex-1 overflow-y-auto">
+                <!-- Game 1: Drag and Drop -->
+                <div id="game-1-container">
+                    <h3 class="font-bold text-xl mb-4">Cocokkan Transformasi (Drag & Drop)</h3>
+                    <p class="mb-4 text-slate-600">Tarik blok nama transformasi di sebelah kiri ke rumus bayangan (A') yang tepat di sebelah kanan.</p>
+                    <div class="flex flex-col md:flex-row gap-8">
+                        <div class="flex-1 flex flex-col gap-3" id="drag-sources">
+                            <div draggable="true" ondragstart="drag(event)" id="drag-trans" class="bg-blue-100 p-3 rounded cursor-move border border-blue-300 shadow-sm font-semibold text-center">Translasi T(-4, 1)</div>
+                            <div draggable="true" ondragstart="drag(event)" id="drag-refX" class="bg-emerald-100 p-3 rounded cursor-move border border-emerald-300 shadow-sm font-semibold text-center">Refleksi Sumbu X</div>
+                            <div draggable="true" ondragstart="drag(event)" id="drag-rot180" class="bg-amber-100 p-3 rounded cursor-move border border-amber-300 shadow-sm font-semibold text-center">Rotasi 180&deg;</div>
+                            <div draggable="true" ondragstart="drag(event)" id="drag-dilHalf" class="bg-purple-100 p-3 rounded cursor-move border border-purple-300 shadow-sm font-semibold text-center">Dilatasi k = 0.5</div>
+                            <div draggable="true" ondragstart="drag(event)" id="drag-refY-X" class="bg-rose-100 p-3 rounded cursor-move border border-rose-300 shadow-sm font-semibold text-center">Refleksi y = -x</div>
+                        </div>
+                        <div class="flex-1 flex flex-col gap-3">
+                            <div class="flex items-center gap-4"><div ondrop="drop(event)" ondragover="allowDrop(event)" data-target="drag-refX" class="w-full max-w-[200px] h-12 bg-slate-100 border-2 border-dashed border-slate-400 rounded flex items-center justify-center p-1"></div> <span class="font-bold">A'(x, -y)</span></div>
+                            <div class="flex items-center gap-4"><div ondrop="drop(event)" ondragover="allowDrop(event)" data-target="drag-rot180" class="w-full max-w-[200px] h-12 bg-slate-100 border-2 border-dashed border-slate-400 rounded flex items-center justify-center p-1"></div> <span class="font-bold">A'(-x, -y)</span></div>
+                            <div class="flex items-center gap-4"><div ondrop="drop(event)" ondragover="allowDrop(event)" data-target="drag-dilHalf" class="w-full max-w-[200px] h-12 bg-slate-100 border-2 border-dashed border-slate-400 rounded flex items-center justify-center p-1"></div> <span class="font-bold">A'(0.5x, 0.5y)</span></div>
+                            <div class="flex items-center gap-4"><div ondrop="drop(event)" ondragover="allowDrop(event)" data-target="drag-trans" class="w-full max-w-[200px] h-12 bg-slate-100 border-2 border-dashed border-slate-400 rounded flex items-center justify-center p-1"></div> <span class="font-bold">A'(x-4, y+1)</span></div>
+                            <div class="flex items-center gap-4"><div ondrop="drop(event)" ondragover="allowDrop(event)" data-target="drag-refY-X" class="w-full max-w-[200px] h-12 bg-slate-100 border-2 border-dashed border-slate-400 rounded flex items-center justify-center p-1"></div> <span class="font-bold">A'(-y, -x)</span></div>
+                        </div>
+                    </div>
+                    <button onclick="checkGame1()" class="mt-6 bg-primary hover:bg-blue-600 text-white px-6 py-2 rounded-lg font-bold">Cek Jawaban</button>
+                    <p id="g1-result" class="mt-3 font-bold"></p>
+                </div>
+
+                <!-- Game 2: Drag Words -->
+                <div id="game-2-container" class="hidden">
+                    <h3 class="font-bold text-xl mb-4">Lengkapi Paragraf (Drag Words)</h3>
+                    <p class="mb-4 text-slate-600">Tarik kata di dalam kotak gelap ke bagian rumpang (garis bawah) pada paragraf.</p>
+                    <div class="flex gap-2 mb-6 flex-wrap" id="word-bank">
+                        <div draggable="true" ondragstart="drag(event)" id="word-rotasi" class="bg-slate-700 text-white px-3 py-1 rounded cursor-move font-semibold text-sm">Rotasi</div>
+                        <div draggable="true" ondragstart="drag(event)" id="word-refleksi" class="bg-slate-700 text-white px-3 py-1 rounded cursor-move font-semibold text-sm">Refleksi</div>
+                        <div draggable="true" ondragstart="drag(event)" id="word-translasi" class="bg-slate-700 text-white px-3 py-1 rounded cursor-move font-semibold text-sm">Translasi</div>
+                        <div draggable="true" ondragstart="drag(event)" id="word-dilatasi" class="bg-slate-700 text-white px-3 py-1 rounded cursor-move font-semibold text-sm">Dilatasi</div>
+                        <div draggable="true" ondragstart="drag(event)" id="word-pusat" class="bg-slate-700 text-white px-3 py-1 rounded cursor-move font-semibold text-sm">Pusat</div>
+                    </div>
+                    <div class="bg-slate-50 p-6 rounded-lg border leading-loose text-lg">
+                        Transformasi geometri yang memutar sebuah bangun dengan sudut tertentu dinamakan <span ondrop="drop(event)" ondragover="allowDrop(event)" data-target="word-rotasi" class="inline-block min-w-[100px] h-8 bg-white border-b-2 border-slate-400 mx-1 align-middle text-center overflow-hidden"></span>. 
+                        Jika bangun tersebut dipantulkan terhadap sebuah cermin, maka disebut <span ondrop="drop(event)" ondragover="allowDrop(event)" data-target="word-refleksi" class="inline-block min-w-[100px] h-8 bg-white border-b-2 border-slate-400 mx-1 align-middle text-center overflow-hidden"></span>. 
+                        Pergeseran bangun tanpa mengubah ukuran dan arah disebut <span ondrop="drop(event)" ondragover="allowDrop(event)" data-target="word-translasi" class="inline-block min-w-[100px] h-8 bg-white border-b-2 border-slate-400 mx-1 align-middle text-center overflow-hidden"></span>. 
+                        Sedangkan perubahan ukuran menjadi lebih besar atau lebih kecil disebut <span ondrop="drop(event)" ondragover="allowDrop(event)" data-target="word-dilatasi" class="inline-block min-w-[100px] h-8 bg-white border-b-2 border-slate-400 mx-1 align-middle text-center overflow-hidden"></span>. 
+                        Titik acuan dari perputaran atau penskalaan disebut titik <span ondrop="drop(event)" ondragover="allowDrop(event)" data-target="word-pusat" class="inline-block min-w-[100px] h-8 bg-white border-b-2 border-slate-400 mx-1 align-middle text-center overflow-hidden"></span>.
+                    </div>
+                    <button onclick="checkGame2()" class="mt-6 bg-primary hover:bg-blue-600 text-white px-6 py-2 rounded-lg font-bold">Cek Jawaban</button>
+                    <p id="g2-result" class="mt-3 font-bold"></p>
+                </div>
+
+                <!-- Game 3: Fill the Words -->
+                <div id="game-3-container" class="hidden">
+                    <h3 class="font-bold text-xl mb-4">Isi Bagian Rumpang (Fill the Words)</h3>
+                    <p class="mb-4 text-slate-600">Ketikkan angka yang tepat pada kotak kosong untuk melengkapi pernyataan di bawah ini.</p>
+                    <div class="bg-slate-50 p-6 rounded-lg border leading-loose text-lg space-y-4">
+                        <p>1. Translasi titik A(1, 4) oleh vektor T(5, -2) menghasilkan bayangan dengan koordinat X = <input type="text" id="fill-1" class="w-16 text-center border-b-2 border-slate-400 bg-white mx-1 outline-none focus:border-primary"> dan Y = <input type="text" id="fill-2" class="w-16 text-center border-b-2 border-slate-400 bg-white mx-1 outline-none focus:border-primary">.</p>
+                        <p>2. Jika titik B(4, -5) direfleksikan terhadap sumbu X, nilai koordinat Y yang baru adalah <input type="text" id="fill-3" class="w-16 text-center border-b-2 border-slate-400 bg-white mx-1 outline-none focus:border-primary">.</p>
+                        <p>3. Dilatasi titik C(3, -1) dengan faktor skala -2 berpusat di O(0,0) akan menghasilkan titik akhir di (<input type="text" id="fill-4" class="w-16 text-center border-b-2 border-slate-400 bg-white mx-1 outline-none focus:border-primary">, <input type="text" id="fill-5" class="w-16 text-center border-b-2 border-slate-400 bg-white mx-1 outline-none focus:border-primary">).</p>
+                        <p>4. Rotasi titik D(5, 2) sebesar 180&deg; berpusat di O(0,0) menghasilkan bayangan dengan koordinat X = <input type="text" id="fill-6" class="w-16 text-center border-b-2 border-slate-400 bg-white mx-1 outline-none focus:border-primary"> dan Y = <input type="text" id="fill-7" class="w-16 text-center border-b-2 border-slate-400 bg-white mx-1 outline-none focus:border-primary">.</p>
+                        <p>5. Jika titik E(-3, 7) direfleksikan terhadap garis y = -x, nilai koordinat X yang baru adalah <input type="text" id="fill-8" class="w-16 text-center border-b-2 border-slate-400 bg-white mx-1 outline-none focus:border-primary">.</p>
+                    </div>
+                    <button onclick="checkGame3()" class="mt-6 bg-primary hover:bg-blue-600 text-white px-6 py-2 rounded-lg font-bold">Cek Jawaban</button>
+                    <p id="g3-result" class="mt-3 font-bold"></p>
+                </div>
+
+                <!-- Game 4: Tebak Gambar -->
+                <div id="game-4-container" class="hidden">
+                    <h3 class="font-bold text-xl mb-4">Tebak Transformasi</h3>
+                    <p class="mb-4 text-slate-600">Pilih jenis transformasi yang sesuai dengan perubahan dari objek awal (Biru) ke bayangan (Merah).</p>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        <!-- Q1 -->
+                        <div class="border rounded-lg p-4 bg-slate-50 flex flex-col items-center shadow-sm">
+                            <div class="w-32 h-32 relative mb-4">
+                                <div class="absolute w-8 h-8 bg-blue-500 opacity-50 bottom-4 left-4"></div>
+                                <div class="absolute w-8 h-8 bg-rose-500 top-4 right-4"></div>
+                                <i class="fas fa-arrow-right absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-slate-400 text-2xl"></i>
+                            </div>
+                            <select id="tg-1" class="w-full p-2 border rounded font-semibold focus:outline-none focus:ring-2 focus:ring-primary">
+                                <option value="">-- Pilih --</option><option value="translasi">Translasi</option><option value="rotasi">Rotasi</option>
+                            </select>
+                        </div>
+                        <!-- Q2 -->
+                        <div class="border rounded-lg p-4 bg-slate-50 flex flex-col items-center shadow-sm">
+                            <div class="w-32 h-32 relative mb-4 flex">
+                                <div class="w-1/2 h-full border-r-2 border-dashed border-slate-600 relative">
+                                    <div class="absolute w-0 h-0 border-l-[15px] border-l-transparent border-r-[15px] border-r-transparent border-b-[25px] border-b-blue-500 opacity-50 top-12 right-2 rotate-90"></div>
+                                </div>
+                                <div class="w-1/2 h-full relative">
+                                    <div class="absolute w-0 h-0 border-l-[15px] border-l-transparent border-r-[15px] border-r-transparent border-b-[25px] border-b-rose-500 top-12 left-2 -rotate-90"></div>
+                                </div>
+                            </div>
+                            <select id="tg-2" class="w-full p-2 border rounded font-semibold focus:outline-none focus:ring-2 focus:ring-primary">
+                                <option value="">-- Pilih --</option><option value="refleksi">Refleksi</option><option value="dilatasi">Dilatasi</option>
+                            </select>
+                        </div>
+                        <!-- Q3 -->
+                        <div class="border rounded-lg p-4 bg-slate-50 flex flex-col items-center shadow-sm">
+                            <div class="w-32 h-32 relative mb-4">
+                                <div class="absolute w-6 h-6 bg-blue-500 opacity-50 bottom-4 left-4"></div>
+                                <div class="absolute w-16 h-16 border-4 border-rose-500 bottom-4 left-4"></div>
+                            </div>
+                            <select id="tg-3" class="w-full p-2 border rounded font-semibold focus:outline-none focus:ring-2 focus:ring-primary">
+                                <option value="">-- Pilih --</option><option value="translasi">Translasi</option><option value="dilatasi">Dilatasi</option>
+                            </select>
+                        </div>
+                        <!-- Q4 -->
+                        <div class="border rounded-lg p-4 bg-slate-50 flex flex-col items-center shadow-sm">
+                            <div class="w-32 h-32 relative mb-4">
+                                <div class="absolute w-8 h-16 bg-blue-500 opacity-50 top-8 left-4"></div>
+                                <div class="absolute h-8 w-16 bg-rose-500 top-2 right-4"></div>
+                                <i class="fas fa-undo absolute bottom-6 left-1/2 transform -translate-x-1/2 text-slate-400 text-2xl"></i>
+                            </div>
+                            <select id="tg-4" class="w-full p-2 border rounded font-semibold focus:outline-none focus:ring-2 focus:ring-primary">
+                                <option value="">-- Pilih --</option><option value="rotasi">Rotasi</option><option value="refleksi">Refleksi</option>
+                            </select>
+                        </div>
+                        <!-- Q5 -->
+                        <div class="border rounded-lg p-4 bg-slate-50 flex flex-col items-center shadow-sm">
+                            <div class="w-32 h-32 relative mb-4 flex flex-col">
+                                <div class="w-full h-1/2 border-b-2 border-dashed border-slate-600 relative">
+                                    <div class="absolute w-12 h-6 bg-blue-500 opacity-50 bottom-0 left-10 rounded-t-full"></div>
+                                </div>
+                                <div class="w-full h-1/2 relative">
+                                    <div class="absolute w-12 h-6 bg-rose-500 top-0 left-10 rounded-b-full"></div>
+                                </div>
+                            </div>
+                            <select id="tg-5" class="w-full p-2 border rounded font-semibold focus:outline-none focus:ring-2 focus:ring-primary">
+                                <option value="">-- Pilih --</option><option value="refleksi">Refleksi</option><option value="translasi">Translasi</option>
+                            </select>
+                        </div>
+                    </div>
+                    <button onclick="checkGame4()" class="mt-6 bg-primary hover:bg-blue-600 text-white px-6 py-2 rounded-lg font-bold">Cek Jawaban</button>
+                    <p id="g4-result" class="mt-3 font-bold"></p>
+                </div>
+
+                <!-- Game 5: Evaluasi HOTS -->
+                <div id="game-5-container" class="hidden">
+                    <h3 class="font-bold text-xl mb-4">Evaluasi Berpikir Tingkat Tinggi (HOTS)</h3>
+                    
+                    <!-- Form Data Diri (Intro) -->
+                    <div id="g5-intro" class="bg-slate-50 p-6 rounded-xl border border-slate-200 shadow-sm max-w-md mx-auto mt-8">
+                        <div class="text-center text-primary text-4xl mb-4"><i class="fas fa-user-graduate"></i></div>
+                        <h4 class="font-bold text-lg mb-4 text-center text-slate-800">Isi Data Diri Sebelum Memulai</h4>
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-semibold text-slate-700 mb-1">Nama Lengkap</label>
+                                <input type="text" id="eval-nama" class="w-full px-4 py-2 rounded-lg border focus:ring-2 focus:ring-primary outline-none transition">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-semibold text-slate-700 mb-1">Kelas</label>
+                                <input type="text" id="eval-kelas" class="w-full px-4 py-2 rounded-lg border focus:ring-2 focus:ring-primary outline-none transition" placeholder="Contoh: 9A">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-semibold text-slate-700 mb-1">No. Absen</label>
+                                <input type="number" id="eval-absen" class="w-full px-4 py-2 rounded-lg border focus:ring-2 focus:ring-primary outline-none transition" placeholder="Contoh: 12">
+                            </div>
+                            <button onclick="mulaiEvaluasi()" class="w-full bg-primary hover:bg-blue-600 text-white font-bold py-3 px-4 rounded-lg transition-colors mt-2 shadow-md">Mulai Kerjakan Soal <i class="fas fa-arrow-right ml-1"></i></button>
+                        </div>
+                        <p id="g5-intro-err" class="text-rose-500 text-sm mt-3 text-center hidden font-semibold"><i class="fas fa-exclamation-triangle mr-1"></i> Harap isi semua data diri dengan benar.</p>
+                    </div>
+
+                    <!-- Soal Evaluasi (Awalnya Hidden) -->
+                    <div id="g5-questions" class="hidden">
+                        <p class="mb-4 text-slate-600 bg-blue-50 p-3 rounded-lg border border-blue-200"><i class="fas fa-info-circle mr-2 text-primary"></i>Jawablah 10 pertanyaan komprehensif di bawah ini. Pastikan Anda memperhatikan tipe soal (Pilihan Ganda, Pilihan Kompleks, Drag & Drop, Benar/Salah).</p>
+                        
+                        <!-- Container Soal Dinamis -->
+                        <div id="eval-dynamic-qs" class="space-y-6">
+                            <!-- Soal akan di-generate oleh JavaScript di sini -->
+                        </div>
+
+                        <button id="btn-submit-g5" onclick="checkGame5()" class="mt-6 w-full bg-primary hover:bg-blue-600 text-white px-6 py-3 rounded-lg font-bold text-lg shadow-md transition-all">Submit Evaluasi</button>
+                        <p id="g5-result" class="mt-4 font-bold text-center"></p>
+                        
+                        <!-- Feedback Container -->
+                        <div id="g5-feedback" class="hidden mt-6 space-y-4">
+                            <!-- Konten pembahasan akan disuntikkan ke sini via JavaScript -->
+                        </div>
+                        <button id="btn-retake-g5" onclick="retakeEvaluasi()" class="hidden mt-4 w-full bg-slate-200 hover:bg-slate-300 text-slate-800 px-6 py-3 rounded-lg font-bold text-lg shadow-sm transition-all"><i class="fas fa-redo-alt mr-2"></i>Kerjakan Ulang (Soal Diacak Kembali)</button>
+                    </div>
+                </div>
+
+                <!-- Game 6: Hasil Evaluasi (Area Guru) -->
+                <div id="game-6-container" class="hidden">
+                    <h3 class="font-bold text-xl mb-4 text-amber-700 border-b pb-2"><i class="fas fa-lock mr-2"></i>Area Guru: Rekapitulasi Hasil Evaluasi</h3>
+                    
+                    <!-- Login Guru -->
+                    <div id="g6-login" class="bg-amber-50 p-6 rounded-xl border border-amber-200 shadow-sm max-w-sm mx-auto mt-8">
+                        <div class="text-center text-amber-500 text-4xl mb-4"><i class="fas fa-user-shield"></i></div>
+                        <h4 class="font-bold text-lg mb-4 text-center text-slate-800">Login Akses Guru</h4>
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-semibold text-slate-700 mb-1">Username</label>
+                                <input type="text" id="guru-user" class="w-full px-4 py-2 rounded-lg border focus:ring-2 focus:ring-amber-500 outline-none transition">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-semibold text-slate-700 mb-1">Password</label>
+                                <input type="password" id="guru-pass" class="w-full px-4 py-2 rounded-lg border focus:ring-2 focus:ring-amber-500 outline-none transition">
+                            </div>
+                            <button onclick="loginGuru()" class="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold py-3 px-4 rounded-lg transition-colors mt-2 shadow-md">Masuk <i class="fas fa-sign-in-alt ml-1"></i></button>
+                        </div>
+                        <p id="g6-login-err" class="text-rose-500 text-sm mt-3 text-center hidden font-semibold"><i class="fas fa-times-circle mr-1"></i> Username atau Password salah.</p>
+                    </div>
+
+                    <!-- Dashboard Data -->
+                    <div id="g6-dashboard" class="hidden mt-4">
+                        <div class="flex justify-between items-center mb-4 bg-slate-50 p-3 rounded border">
+                            <p class="text-slate-600 text-sm"><i class="fas fa-sync-alt mr-1"></i> Data otomatis diperbarui secara real-time dari Database Firebase.</p>
+                            <button onclick="keluarGuru()" class="bg-rose-100 text-rose-700 px-4 py-2 rounded-lg text-sm hover:bg-rose-200 font-bold transition"><i class="fas fa-sign-out-alt"></i> Keluar</button>
+                        </div>
+                        
+                        <div class="overflow-x-auto bg-white rounded-xl border border-slate-200 shadow-sm">
+                            <table class="w-full text-left border-collapse min-w-[700px]">
+                                <thead>
+                                    <tr class="bg-slate-100 text-slate-700 border-b-2 border-slate-200">
+                                        <th class="p-4 font-bold">Waktu Mengerjakan</th>
+                                        <th class="p-4 font-bold">Nama Lengkap</th>
+                                        <th class="p-4 font-bold">Kelas</th>
+                                        <th class="p-4 font-bold">No. Absen</th>
+                                        <th class="p-4 font-bold text-center">Skor Evaluasi</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="eval-table-body" class="divide-y divide-slate-100">
+                                    <!-- Data disuntikkan via JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Modal Level Up (Hidden) -->
+    <div id="level-modal" class="fixed inset-0 bg-slate-900 bg-opacity-50 z-[100] hidden items-center justify-center backdrop-blur-sm">
+        <div class="bg-white rounded-3xl p-8 max-w-sm w-full mx-4 shadow-2xl transform scale-95 transition-transform duration-300 text-center" id="modal-content">
+            <div class="text-6xl text-yellow-400 mb-4 animate-bounce"><i class="fas fa-trophy"></i></div>
+            <h2 class="text-3xl font-extrabold text-slate-800 mb-2">Kerja Bagus!</h2>
+            <p class="text-slate-600 mb-6">Misi selesai. Kamu berhasil mencocokkan bangun datar dengan target.</p>
+            <button onclick="nextLevel()" class="w-full bg-primary hover:bg-blue-600 text-white font-bold py-3 px-6 rounded-xl shadow-lg transition-all active:scale-95">
+                Misi Selanjutnya <i class="fas fa-arrow-right ml-2"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Firebase Integration Module -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        let db, auth, appId;
+        let currentUser = null;
+        let inMemoryData = []; // Fallback (cadangan lokal) jika Firebase sedang gagal/terblokir
+        
+        try {
+            if (typeof __firebase_config !== 'undefined') {
+                const firebaseConfig = JSON.parse(__firebase_config);
+                const app = initializeApp(firebaseConfig);
+                auth = getAuth(app);
+                db = getFirestore(app);
+                appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+
+                // Inisialisasi Auth WAJIB dijalankan terlebih dahulu
+                const initAuth = async () => {
+                    try {
+                        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                            await signInWithCustomToken(auth, __initial_auth_token);
+                        } else {
+                            await signInAnonymously(auth);
+                        }
+                    } catch (e) {
+                        console.error("Gagal Autentikasi Firebase:", e);
+                    }
+                };
+                
+                initAuth();
+
+                onAuthStateChanged(auth, (user) => {
+                    currentUser = user;
+                    if (user) {
+                        console.log("Firebase Auth & Database Siap!");
+                        // Perbarui data jika dashboard guru kebetulan sedang terbuka
+                        if (document.getElementById('g6-dashboard') && !document.getElementById('g6-dashboard').classList.contains('hidden')) {
+                            if(window.renderTabelEvaluasi) window.listenEvaluationsDB(window.renderTabelEvaluasi);
+                        }
+                    }
+                });
+            } else {
+                console.warn("Konfigurasi Firebase tidak ditemukan. Beralih ke Mode Lokal Sementara.");
+            }
+        } catch (e) {
+            console.warn("Sistem Database Gagal diinisialisasi. Beralih ke Mode Lokal Sementara.", e);
+        }
+
+        // Ekspos fungsi database ke objek window
+        window.saveEvaluationToDB = async (data) => {
+            // Selalu simpan di memori lokal sebagai cadangan
+            inMemoryData.push({ id: Date.now().toString(), ...data });
+            
+            // Trigger pembaruan UI secara langsung jika dashboard Guru sedang terbuka (berguna untuk mode fallback lokal)
+            if (document.getElementById('g6-dashboard') && !document.getElementById('g6-dashboard').classList.contains('hidden') && window.renderTabelEvaluasi) {
+                window.listenEvaluationsDB(window.renderTabelEvaluasi);
+            }
+
+            if (!db || !currentUser) {
+                console.warn("Tersimpan secara lokal (sementara).");
+                return;
+            }
+            try {
+                const collRef = collection(db, 'artifacts', appId, 'public', 'data', 'evaluations');
+                await addDoc(collRef, data);
+                console.log("Data berhasil dikirim ke Cloud Database!");
+            } catch (e) {
+                console.error("Gagal menyimpan data ke Cloud:", e);
+            }
+        };
+
+        let unsubscribeSnapshot = null;
+        window.listenEvaluationsDB = (callback) => {
+            if (!db || !currentUser) {
+                // Tarik dari data cadangan lokal bila tidak ada koneksi
+                const docs = [...inMemoryData].sort((a, b) => new Date(b.waktu) - new Date(a.waktu));
+                callback(docs);
+                return;
+            }
+            
+            try {
+                const collRef = collection(db, 'artifacts', appId, 'public', 'data', 'evaluations');
+                unsubscribeSnapshot = onSnapshot(collRef, (snapshot) => {
+                    const docs = [];
+                    snapshot.forEach(doc => docs.push({ id: doc.id, ...doc.data() }));
+                    
+                    // Gabungkan dengan data lokal yang mungkin belum sinkron (mencegah ganda)
+                    const combined = [...docs];
+                    inMemoryData.forEach(localItem => {
+                        if(!combined.find(c => c.nama === localItem.nama && c.waktu === localItem.waktu)) {
+                            combined.push(localItem);
+                        }
+                    });
+                    
+                    combined.sort((a, b) => new Date(b.waktu) - new Date(a.waktu));
+                    callback(combined);
+                }, (error) => {
+                    console.error("Gagal menarik data evaluasi dari Cloud:", error);
+                    // Fallback
+                    callback([...inMemoryData].sort((a, b) => new Date(b.waktu) - new Date(a.waktu)));
+                });
+            } catch (error) {
+                console.error("Gagal memasang Listener:", error);
+                callback([...inMemoryData].sort((a, b) => new Date(b.waktu) - new Date(a.waktu)));
+            }
+        };
+        
+        window.stopListenEvaluationsDB = () => {
+            if(unsubscribeSnapshot) {
+                unsubscribeSnapshot();
+                unsubscribeSnapshot = null;
+            }
+        }
+    </script>
+
+    <!-- Application Logic -->
+    <script>
+        // --- State Management ---
+        let currentMode = 'explore'; // 'explore' or 'challenge'
+        let currentLevel = 0;
+        let gridSize = 30; // pixels per unit
+        
+        // Vertex shape data structure: {x, y, label}
+        const defaultShape = [
+            {x: 1, y: 1, label: 'A'}, 
+            {x: 4, y: 1, label: 'B'}, 
+            {x: 1, y: 4, label: 'C'}
+        ];
+        
+        let originalVertices = [...defaultShape.map(v => ({...v}))];
+        let currentVertices = [...defaultShape.map(v => ({...v}))];
+        let targetVertices = []; 
+        
+        // Animation State
+        let isAnimating = false;
+        let animProgress = 0;
+        let animStartVertices = [];
+        let animEndVertices = [];
+
+        // Levels Data for Challenge Mode
+        const levels = [
+            {
+                title: "Misi 1: Translasi Dasar",
+                desc: "Geser segitiga biru agar tepat berada di atas siluet putus-putus. Gunakan Translasi!",
+                start: [{x: -6, y: 2, label:'A'}, {x: -3, y: 2, label:'B'}, {x: -6, y: 5, label:'C'}],
+                target: [{x: 2, y: 0, label:"A'"}, {x: 5, y: 0, label:"B'"}, {x: 2, y: 3, label:"C'"}]
+            },
+            {
+                title: "Misi 2: Bercermin di Sumbu Y",
+                desc: "Pantulkan segitiga terhadap Sumbu Y agar cocok dengan target.",
+                start: [{x: 2, y: 1, label:'A'}, {x: 5, y: 1, label:'B'}, {x: 2, y: 5, label:'C'}],
+                target: [{x: -2, y: 1, label:"A'"}, {x: -5, y: 1, label:"B'"}, {x: -2, y: 5, label:"C'"}]
+            },
+            {
+                title: "Misi 3: Rotasi 90 Derajat",
+                desc: "Putar segitiga 90° berlawanan arah jarum jam dengan pusat (0,0).",
+                start: [{x: 1, y: 1, label:'A'}, {x: 5, y: 1, label:'B'}, {x: 1, y: 3, label:'C'}],
+                target: [{x: -1, y: 1, label:"A'"}, {x: -1, y: 5, label:"B'"}, {x: -3, y: 1, label:"C'"}]
+            },
+            {
+                title: "Misi 4: Dilatasi (Perbesar)",
+                desc: "Perbesar segitiga dengan faktor skala 2 dari pusat (0,0).",
+                start: [{x: -1, y: 1, label:'A'}, {x: -3, y: 1, label:'B'}, {x: -1, y: 3, label:'C'}],
+                target: [{x: -2, y: 2, label:"A'"}, {x: -6, y: 2, label:"B'"}, {x: -2, y: 6, label:"C'"}]
+            },
+            {
+                title: "Misi 5: Kombinasi Tantangan!",
+                desc: "Gunakan kombinasi transformasi (misal: Translasi lalu Refleksi) untuk mencapai target.",
+                start: [{x: 1, y: -1, label:'A'}, {x: 3, y: -1, label:'B'}, {x: 1, y: -4, label:'C'}],
+                target: [{x: -1, y: 3, label:"A'"}, {x: -3, y: 3, label:"B'"}, {x: -1, y: 6, label:"C'"}] // Translasi (0,2) lalu refleksi sumbu y, dll.
+            }
+        ];
+
+        // --- UI Interactions ---
+        function switchMode(mode) {
+            currentMode = mode;
+            const tabExplore = document.getElementById('tab-explore');
+            const tabChallenge = document.getElementById('tab-challenge');
+            const tabMinigame = document.getElementById('tab-minigame');
+            const scoreContainer = document.getElementById('score-container');
+            const challengeInfo = document.getElementById('challenge-info');
+            
+            const secCanvas = document.getElementById('sec-canvas');
+            const secControls = document.getElementById('sec-controls');
+            const secMinigames = document.getElementById('sec-minigames');
+
+            // Reset styles
+            tabExplore.className = "flex-1 py-4 text-center tab-inactive transition-all duration-300";
+            tabChallenge.className = "flex-1 py-4 text-center tab-inactive transition-all duration-300";
+            if(tabMinigame) tabMinigame.className = "flex-1 py-4 text-center tab-inactive transition-all duration-300 border-l border-slate-200";
+
+            if (mode === 'explore' || mode === 'challenge') {
+                secCanvas.classList.remove('hidden');
+                secCanvas.classList.add('flex');
+                secControls.classList.remove('hidden');
+                secControls.classList.add('flex');
+                if(secMinigames) {
+                    secMinigames.classList.add('hidden');
+                    secMinigames.classList.remove('flex');
+                }
+                
+                if (mode === 'explore') {
+                    tabExplore.className = "flex-1 py-4 text-center tab-active transition-all duration-300";
+                    scoreContainer.classList.add('hidden');
+                    challengeInfo.classList.add('hidden');
+                    
+                    loadShape(defaultShape);
+                    targetVertices = [];
+                    showToast("Mode Eksplorasi Aktif");
+                } else {
+                    tabChallenge.className = "flex-1 py-4 text-center tab-active transition-all duration-300";
+                    scoreContainer.classList.remove('hidden');
+                    scoreContainer.classList.add('flex');
+                    challengeInfo.classList.remove('hidden');
+                    
+                    currentLevel = 0;
+                    loadLevel(currentLevel);
+                }
+            } else if (mode === 'minigames') {
+                if(tabMinigame) tabMinigame.className = "flex-1 py-4 text-center tab-active transition-all duration-300 border-l border-slate-200";
+                
+                secCanvas.classList.add('hidden');
+                secCanvas.classList.remove('flex');
+                secControls.classList.add('hidden');
+                secControls.classList.remove('flex');
+                
+                if(secMinigames) {
+                    secMinigames.classList.remove('hidden');
+                    secMinigames.classList.add('flex');
+                }
+                scoreContainer.classList.add('hidden');
+                
+                switchGame(1); // Setel default ke game 1
+            }
+        }
+
+        function toggleReflectParams() {
+            const axis = document.getElementById('reflect-axis').value;
+            document.getElementById('ref-params-h').classList.add('hidden');
+            document.getElementById('ref-params-k').classList.add('hidden');
+            document.getElementById('ref-params-ab').classList.remove('grid');
+            document.getElementById('ref-params-ab').classList.add('hidden');
+            
+            if (axis === 'xh') document.getElementById('ref-params-h').classList.remove('hidden');
+            if (axis === 'yk') document.getElementById('ref-params-k').classList.remove('hidden');
+            if (axis === 'point') {
+                document.getElementById('ref-params-ab').classList.remove('hidden');
+                document.getElementById('ref-params-ab').classList.add('grid');
+            }
+        }
+
+        function loadShape(shape) {
+            originalVertices = shape.map(v => ({...v}));
+            currentVertices = shape.map(v => ({...v}));
+            isAnimating = false;
+        }
+
+        function loadLevel(index) {
+            if (index >= levels.length) {
+                showToast("Selamat! Semua misi selesai 🎉");
+                switchMode('explore');
+                return;
+            }
+            const lvl = levels[index];
+            document.getElementById('level-display').innerText = index + 1;
+            document.getElementById('challenge-desc').innerText = lvl.desc;
+            
+            loadShape(lvl.start);
+            targetVertices = lvl.target.map(v => ({...v}));
+            showToast(lvl.title);
+        }
+
+        function resetShape() {
+            if (isAnimating) return;
+            startAnimation(currentVertices, originalVertices);
+        }
+
+        function showToast(msg) {
+            const toast = document.getElementById('mission-toast');
+            toast.innerText = msg;
+            toast.classList.remove('opacity-0');
+            toast.classList.add('opacity-100');
+            setTimeout(() => {
+                toast.classList.remove('opacity-100');
+                toast.classList.add('opacity-0');
+            }, 3000);
+        }
+
+        // --- Transformation Mathematics ---
+        
+        function applyTransform(type) {
+            if (isAnimating) return;
+            
+            let newVertices = [];
+            
+            if (type === 'translate') {
+                const tx = parseFloat(document.getElementById('trans-x').value) || 0;
+                const ty = parseFloat(document.getElementById('trans-y').value) || 0;
+                newVertices = currentVertices.map(v => ({
+                    x: v.x + tx, 
+                    y: v.y + ty, 
+                    label: v.label.includes("'") ? v.label : v.label + "'"
+                }));
+            } 
+            else if (type === 'reflect') {
+                const axis = document.getElementById('reflect-axis').value;
+                newVertices = currentVertices.map(v => {
+                    let nx = v.x, ny = v.y;
+                    if (axis === 'x') ny = -v.y;
+                    else if (axis === 'y') nx = -v.x;
+                    else if (axis === 'origin') { nx = -v.x; ny = -v.y; }
+                    else if (axis === 'yx') { nx = v.y; ny = v.x; }
+                    else if (axis === 'y-x') { nx = -v.y; ny = -v.x; }
+                    else if (axis === 'xh') {
+                        const h = parseFloat(document.getElementById('ref-h').value) || 0;
+                        nx = 2 * h - v.x;
+                        ny = v.y;
+                    }
+                    else if (axis === 'yk') {
+                        const k = parseFloat(document.getElementById('ref-k').value) || 0;
+                        nx = v.x;
+                        ny = 2 * k - v.y;
+                    }
+                    else if (axis === 'point') {
+                        const a = parseFloat(document.getElementById('ref-a').value) || 0;
+                        const b = parseFloat(document.getElementById('ref-b').value) || 0;
+                        nx = 2 * a - v.x;
+                        ny = 2 * b - v.y;
+                    }
+                    return { x: nx, y: ny, label: v.label.includes("'") ? v.label : v.label + "'" };
+                });
+            }
+            else if (type === 'rotate') {
+                const angleDeg = parseFloat(document.getElementById('rot-angle').value) || 0;
+                const dir = document.getElementById('rot-dir').value;
+                
+                // Cartesian: CCW is positive angle.
+                let angle = angleDeg;
+                if (dir === 'cw') angle = -angleDeg;
+                
+                const rad = angle * Math.PI / 180;
+                const cosA = Math.cos(rad);
+                const sinA = Math.sin(rad);
+                
+                newVertices = currentVertices.map(v => ({
+                    x: v.x * cosA - v.y * sinA,
+                    y: v.x * sinA + v.y * cosA,
+                    label: v.label.includes("'") ? v.label : v.label + "'"
+                }));
+            }
+            else if (type === 'dilate') {
+                let k = parseFloat(document.getElementById('dil-k').value);
+                if (isNaN(k)) k = 1;
+                newVertices = currentVertices.map(v => ({
+                    x: v.x * k,
+                    y: v.y * k,
+                    label: v.label.includes("'") ? v.label : v.label + "'"
+                }));
+            }
+
+            // Clean up float precision (e.g. 1.2246467991473532e-16 -> 0)
+            newVertices = newVertices.map(v => ({
+                x: Math.round(v.x * 100) / 100,
+                y: Math.round(v.y * 100) / 100,
+                label: v.label
+            }));
+
+            startAnimation(currentVertices, newVertices);
+        }
+
+        function startAnimation(start, end) {
+            animStartVertices = start.map(v => ({...v}));
+            animEndVertices = end.map(v => ({...v}));
+            animProgress = 0;
+            isAnimating = true;
+        }
+
+        // --- Gamification Logic ---
+        function checkWinCondition() {
+            if (currentMode !== 'challenge' || targetVertices.length === 0) return;
+            
+            // Compare currentVertices with targetVertices
+            let isMatch = true;
+            for (let i = 0; i < currentVertices.length; i++) {
+                const dx = Math.abs(currentVertices[i].x - targetVertices[i].x);
+                const dy = Math.abs(currentVertices[i].y - targetVertices[i].y);
+                // Allow small float tolerance
+                if (dx > 0.05 || dy > 0.05) {
+                    isMatch = false;
+                    break;
+                }
+            }
+
+            if (isMatch) {
+                // Trigger Win!
+                triggerConfetti();
+                setTimeout(() => {
+                    const modal = document.getElementById('level-modal');
+                    modal.classList.remove('hidden');
+                    modal.classList.add('flex');
+                    document.getElementById('modal-content').classList.remove('scale-95');
+                    document.getElementById('modal-content').classList.add('scale-100');
+                }, 500);
+            }
+        }
+
+        function nextLevel() {
+            const modal = document.getElementById('level-modal');
+            document.getElementById('modal-content').classList.remove('scale-100');
+            document.getElementById('modal-content').classList.add('scale-95');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+                currentLevel++;
+                loadLevel(currentLevel);
+            }, 200);
+        }
+
+        function triggerConfetti() {
+            var duration = 3 * 1000;
+            var animationEnd = Date.now() + duration;
+            var defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 1000 };
+
+            function randomInRange(min, max) {
+              return Math.random() * (max - min) + min;
+            }
+
+            var interval = setInterval(function() {
+              var timeLeft = animationEnd - Date.now();
+              if (timeLeft <= 0) return clearInterval(interval);
+              var particleCount = 50 * (timeLeft / duration);
+              confetti(Object.assign({}, defaults, { particleCount, origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 } }));
+              confetti(Object.assign({}, defaults, { particleCount, origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 } }));
+            }, 250);
+        }
+
+        // --- Minigames & Latihan Logic ---
+        function switchGame(gameNum) {
+            for(let i=1; i<=6; i++) {
+                let container = document.getElementById('game-' + i + '-container');
+                let btn = document.getElementById('btn-game-' + i);
+                if(container) container.classList.add('hidden');
+                if(btn) btn.classList.remove('bg-white/40', 'font-bold');
+            }
+            
+            let activeContainer = document.getElementById('game-' + gameNum + '-container');
+            let activeBtn = document.getElementById('btn-game-' + gameNum);
+            
+            if(activeContainer) activeContainer.classList.remove('hidden');
+            if(activeBtn) {
+                // Jangan override style tombol kuning untuk game 6 (Hasil Evaluasi)
+                if(gameNum !== 6) activeBtn.classList.add('bg-white/40', 'font-bold');
+            }
+        }
+
+        // --- Bank Soal Dinamis (Diacak untuk tiap Siswa) ---
+        // NEW FRESH HOTS BANK QUESTIONS
+        const pgBank = [
+            { type:'pg', q: "Segitiga dengan salah satu koordinat titik sudut P(2, -3) direfleksikan terhadap garis y = -x, kemudian dilanjutkan dengan dilatasi [O, -3]. Koordinat bayangan akhir titik P adalah...", opts: ['A. (-9, 6)', 'B. (9, -6)', 'C. (-6, 9)', 'D. (6, -9)'], ansIdx: 0, exp: "P(2, -3) dicerminkan terhadap y = -x menghasilkan P'(3, -2). Kemudian P'(3, -2) didilatasikan oleh [O, -3] menghasilkan P''(-9, 6)." },
+            { type:'pg', q: "Sebuah titik Q(a, b) digeser oleh T(-2, 5) lalu dicerminkan terhadap garis x = 3 menghasilkan bayangan akhir Q''(6, 1). Nilai dari a + b adalah...", opts: ['A. -2', 'B. 2', 'C. -6', 'D. 6'], ansIdx: 0, exp: "Q(a,b) ditranslasikan T(-2,5) menjadi Q'(a-2, b+5). Dicerminkan terhadap x=3 menghasilkan x'' = 2(3) - (a-2) = 8-a dan y'' = b+5. Diketahui Q''(6,1), maka 8-a = 6 => a=2, dan b+5 = 1 => b=-4. Nilai a+b = 2 + (-4) = -2." },
+            { type:'pg', q: "Kurva parabola diputar sebesar 180&deg; berpusat di O(0,0). Titik puncak parabola asli adalah (1, 4). Koordinat titik puncak setelah rotasi adalah...", opts: ['A. (-1, -4)', 'B. (-1, 4)', 'C. (1, -4)', 'D. (-4, -1)'], ansIdx: 0, exp: "Rotasi 180&deg; terhadap pusat O(0,0) memetakan titik (x, y) menjadi (-x, -y). Maka puncak (1, 4) berotasi menjadi (-1, -4)." },
+            { type:'pg', q: "Titik R(-4, 2) didilatasikan dengan faktor skala k berpusat di O(0,0) menghasilkan R'(-2, 1), lalu dilanjutkan translasi T(5, -3). Koordinat bayangan akhir R adalah...", opts: ['A. (3, -2)', 'B. (-3, 2)', 'C. (3, 2)', 'D. (-3, -2)'], ansIdx: 0, exp: "R(-4, 2) menjadi R'(-2, 1) berarti faktor skala k = 0.5. Setelah ditranslasikan oleh T(5, -3), koordinat akhirnya menjadi (-2+5, 1-3) = (3, -2)." },
+            { type:'pg', q: "Titik S(3, 4) dicerminkan terhadap garis y = 2 dilanjutkan refleksi terhadap garis y = 5. Transformasi gabungan ini setara dengan translasi tunggal sebesar...", opts: ['A. T(0, 6)', 'B. T(0, 3)', 'C. T(6, 0)', 'D. T(3, 0)'], ansIdx: 0, exp: "Refleksi berturut-turut terhadap dua garis sejajar sumbu X (y=d1 dan y=d2) setara dengan translasi vertikal sebesar 2(d2 - d1). Maka pergeserannya adalah 2(5 - 2) = 6 satuan ke atas, yang ditulis T(0, 6)." }
+        ];
+
+        const pgkBank = [
+            { type:'pgk', q: "Jika suatu bangun datar mengalami transformasi komposisi berupa pencerminan terhadap sumbu X dilanjutkan pencerminan terhadap sumbu Y, manakah pernyataan berikut yang BENAR?", opts: ['Bayangan akhirnya setara dengan hasil rotasi 180&deg; berpusat di O(0,0).', 'Orientasi (arah hadap) bangun akhir menjadi terbalik dua kali sehingga kembali sama seperti orientasi awal.', 'Luas bangun akhir selalu lebih besar dari bangun asli.'], ansIdxs: [0, 1], exp: "Pencerminan sumbu X dilanjutkan Y memetakan (x, y) -> (x, -y) -> (-x, -y). Ini identik dengan rotasi 180&deg;. Luas bangun tidak berubah karena pencerminan bersifat isometri." },
+            { type:'pgk', q: "Sebuah persegi di kuadran I didilatasikan dengan faktor skala k = -0.5 berpusat di O(0,0). Sifat bayangan akhir persegi tersebut adalah...", opts: ['Ukuran luas persegi menyusut menjadi 1/4 dari luas semula.', 'Bayangan akhir persegi terletak di kuadran III.', 'Panjang setiap sisi persegi menyusut menjadi setengah dari panjang asli.'], ansIdxs: [0, 1, 2], exp: "Semua pernyataan benar! Skala k=-0.5 membuat panjang sisi menyusut setengah, luas menjadi k&sup2; = (-0.5)&sup2; = 1/4 dari luas semula, dan karena k negatif maka posisi bangun berpindah menyeberang ke kuadran III." },
+            { type:'pgk', q: "Transformasi geometri berikut ini yang bersifat isometris (mempertahankan ukuran panjang sisi dan luas bangun asli) adalah:", opts: ['Translasi T(-10, 20) dilanjutkan Rotasi 90&deg;.', 'Dilatasi k = -1 berpusat di O(0,0).', 'Dilatasi k = 2 dilanjutkan Refleksi terhadap garis y = x.'], ansIdxs: [0, 1], exp: "Translasi, rotasi, dan dilatasi dengan k = -1 (hanya membalik posisi) mempertahankan ukuran asli bangun (isometris). Dilatasi k = 2 melipatgandakan ukuran sisi sehingga tidak isometris." },
+            { type:'pgk', q: "Manakah pernyataan berikut yang BENAR mengenai pencerminan (refleksi) pada bidang Kartesius?", opts: ['Pencerminan terhadap garis x = h dilanjutkan x = k menghasilkan translasi horisontal sebesar 2(k - h).', 'Pencerminan terhadap titik asal O(0,0) memberikan koordinat bayangan yang sama dengan rotasi 180&deg;.', 'Pencerminan terhadap garis y = -x menukar posisi X dan Y tanpa mengubah tanda koordinatnya.'], ansIdxs: [0, 1], exp: "Pernyataan 1 & 2 benar. Pernyataan 3 salah karena pencerminan terhadap y = -x menukar sekaligus membalik tanda koordinat menjadi (-y, -x)." }
+        ];
+
+        const ddBank = [
+            { type:'dd', q: "Refleksi terhadap garis y = -x memiliki rumus bayangan:", ans: "(-y, -x)", exp: "Pencerminan garis y = -x akan menukar posisi dan membalikkan tanda kedua koordinat." },
+            { type:'dd', q: "Dilatasi [O, k] menghasilkan koordinat bayangan:", ans: "(kx, ky)", exp: "Dilatasi terhadap pusat O(0,0) mengalikan setiap koordinat dengan faktor skala k." },
+            { type:'dd', q: "Rotasi 90&deg; searah jarum jam (CW) berpusat di O(0,0) memiliki rumus:", ans: "(y, -x)", exp: "Rotasi 90&deg; searah jarum jam memetakan (x, y) menjadi (y, -x)." },
+            { type:'dd', q: "Refleksi terhadap titik (a, b) menghasilkan rumus bayangan:", ans: "(2a-x, 2b-y)", exp: "Pencerminan terhadap titik tertentu menggunakan rumus koordinat rata-rata tengah." }
+        ];
+
+        const bsBank = [
+            { type:'bs', q: "Komposisi dua refleksi terhadap dua garis yang saling tegak lurus setara dengan rotasi 180&deg; dengan pusat di titik potong kedua garis tersebut.", ans: 'T', exp: "Sesuai teori refleksi berurutan, dua cermin yang berpotongan tegak lurus akan membentuk efek rotasi sebesar 2 x 90&deg; = 180&deg;." },
+            { type:'bs', q: "Bayangan dari titik A(3, -2) oleh dilatasi dengan pusat P(1, 1) dan faktor skala k = 2 adalah A'(5, -5).", ans: 'T', exp: "x' = 1 + 2(3 - 1) = 5. y' = 1 + 2(-2 - 1) = -5. Maka bayangannya benar di (5, -5)." },
+            { type:'bs', q: "Bayangan titik B(-4, 5) oleh pencerminan terhadap garis x = -1 adalah B'(2, 5).", ans: 'T', exp: "x' = 2(-1) - (-4) = -2 + 4 = 2. Koordinat y tetap yaitu 5. Maka benar B'(2, 5)." },
+            { type:'bs', q: "Jika suatu segitiga diputar sebesar 360&deg; terhadap titik pusat manapun, orientasi dan koordinat segitiga tersebut tidak mengalami perubahan posisi sama sekali.", ans: 'T', exp: "Rotasi 360&deg; adalah satu putaran penuh yang mengembalikan semua titik ke koordinat semula." },
+            { type:'bs', q: "Translasi bersifat komutatif, artinya jika kita melakukan translasi T1 dilanjutkan T2, hasilnya akan berbeda dengan melakukan T2 dilanjutkan T1.", ans: 'F', exp: "Translasi bersifat komutatif karena penjumlahan vektor bersifat komutatif (T1 + T2 = T2 + T1). Hasil akhirnya akan selalu sama." }
+        ];
+
+        let selectedEvalQuestions = [];
+
+        function generateEvaluasi() {
+            // Algoritma Fisher-Yates untuk memastikan pengacakan yang benar-benar rawak setiap dipanggil
+            const shuffle = (array) => {
+                let curId = array.length;
+                while (0 !== curId) {
+                    let randId = Math.floor(Math.random() * curId);
+                    curId -= 1;
+                    let tmp = array[curId];
+                    array[curId] = array[randId];
+                    array[randId] = tmp;
+                }
+                return array;
+            };
+            
+            // Pilih acak soal dari bank (Total 10: 2 PG, 3 PGK, 2 DD, 3 BS)
+            let pg = shuffle([...pgBank]).slice(0, 2);
+            let pgk = shuffle([...pgkBank]).slice(0, 3);
+            let dd = shuffle([...ddBank]).slice(0, 2);
+            let bs = shuffle([...bsBank]).slice(0, 3);
+
+            selectedEvalQuestions = [...pg, ...pgk, ...dd, ...bs];
+            let html = '';
+            let qNum = 1;
+
+            // 1. Render Pilihan Ganda
+            html += `<div class="bg-slate-50 p-4 rounded-lg border mb-4 shadow-sm">
+                        <h4 class="font-bold text-blue-700 mb-2">Pilihan Ganda (Pilih 1)</h4>`;
+            pg.forEach(q => {
+                html += `
+                <div class="mb-4">
+                    <p class="mb-2"><strong>${qNum}.</strong> ${q.q}</p>
+                    <div class="flex flex-col gap-1 ml-4">
+                        ${q.opts.map((opt, i) => `<label class="cursor-pointer select-none hover:text-blue-600"><input type="radio" name="q${qNum}" value="${i}"> ${opt}</label>`).join('')}
+                    </div>
+                </div>`;
+                q.renderedNum = qNum++;
+            });
+            html += `</div>`;
+
+            // 2. Render Pilihan Ganda Kompleks
+            html += `<div class="bg-slate-50 p-4 rounded-lg border mb-4 shadow-sm">
+                        <h4 class="font-bold text-emerald-700 mb-2">Pilihan Ganda Kompleks (Bisa Pilih > 1)</h4>`;
+            pgk.forEach(q => {
+                html += `
+                <div class="mb-4">
+                    <p class="mb-2"><strong>${qNum}.</strong> ${q.q}</p>
+                    <div class="flex flex-col gap-1 ml-4">
+                        ${q.opts.map((opt, i) => `<label class="cursor-pointer select-none hover:text-emerald-600"><input type="checkbox" id="q${qNum}_${i}"> ${opt}</label>`).join('')}
+                    </div>
+                </div>`;
+                q.renderedNum = qNum++;
+            });
+            html += `</div>`;
+
+            // 3. Render Drag & Drop
+            html += `<div class="bg-slate-50 p-4 rounded-lg border mb-4 shadow-sm">
+                        <h4 class="font-bold text-amber-700 mb-2">Menjodohkan / Drag & Drop</h4>
+                        <p class="mb-3 text-sm">Tarik rumus bayangan yang tepat ke dalam kotak rumpang di bawah ini.</p>
+                        <div class="flex gap-4 mb-4 p-3 bg-white rounded border border-slate-200 flex-wrap" id="drag-sources-hots">`;
+            
+            // Ekstrak semua jawaban DD yang mungkin untuk bank pilihan di atas
+            const allAns = [...new Set(ddBank.map(d => d.ans))];
+            allAns.forEach((ans, i) => {
+                html += `<div draggable="true" ondragstart="drag(event)" id="drag-ans-${i}" class="bg-slate-700 text-white px-3 py-1 rounded cursor-move font-semibold text-sm transition-transform hover:scale-105">${ans}</div>`;
+            });
+            html += `</div><div class="space-y-3">`;
+
+            dd.forEach(q => {
+                html += `
+                    <div class="flex flex-wrap items-center gap-3">
+                        <strong>${qNum}.</strong> ${q.q}
+                        <div ondrop="drop(event)" ondragover="allowDrop(event)" data-target="drag-ans" id="dd-drop-${qNum}" class="inline-block min-w-[80px] h-8 bg-white border-2 border-dashed border-slate-400 mx-1 align-middle flex items-center justify-center p-1 shadow-inner"></div>
+                    </div>`;
+                q.renderedNum = qNum++;
+            });
+            html += `</div></div>`;
+
+            // 4. Render Benar/Salah
+            html += `<div class="bg-slate-50 p-4 rounded-lg border mb-4 shadow-sm">
+                        <h4 class="font-bold text-purple-700 mb-2">Benar / Salah (Pilih 1)</h4>`;
+            bs.forEach(q => {
+                html += `
+                <div class="mb-4">
+                    <p class="mb-2"><strong>${qNum}.</strong> ${q.q}</p>
+                    <div class="flex gap-4 ml-4 font-semibold">
+                        <label class="cursor-pointer text-emerald-600 hover:text-emerald-700"><input type="radio" name="q${qNum}" value="T"> Benar</label>
+                        <label class="cursor-pointer text-rose-600 hover:text-rose-700"><input type="radio" name="q${qNum}" value="F"> Salah</label>
+                    </div>
+                </div>`;
+                q.renderedNum = qNum++;
+            });
+            html += `</div>`;
+
+            document.getElementById('eval-dynamic-qs').innerHTML = html;
+            
+            // Reset state UI
+            document.getElementById('g5-feedback').classList.add('hidden');
+            document.getElementById('btn-submit-g5').classList.remove('hidden');
+            document.getElementById('g5-result').innerText = '';
+        }
+
+        function mulaiEvaluasi() {
+            const nama = document.getElementById('eval-nama').value.trim();
+            const kelas = document.getElementById('eval-kelas').value.trim();
+            const absen = document.getElementById('eval-absen').value.trim();
+            const err = document.getElementById('g5-intro-err');
+
+            if(nama === '' || kelas === '' || absen === '') {
+                err.classList.remove('hidden');
+            } else {
+                err.classList.add('hidden');
+                document.getElementById('g5-intro').classList.add('hidden');
+                
+                // Generate soal acak sebelum panel ditampilkan
+                generateEvaluasi();
+                
+                document.getElementById('g5-questions').classList.remove('hidden');
+            }
+        }
+
+        function retakeEvaluasi() {
+            // Sembunyikan hasil sebelumnya
+            document.getElementById('g5-feedback').classList.add('hidden');
+            document.getElementById('btn-retake-g5').classList.add('hidden');
+            document.getElementById('g5-result').innerText = '';
+            
+            // Generate ulang soal (diacak ulang dari Bank Soal)
+            generateEvaluasi();
+            
+            // Scroll sedikit ke atas agar nyaman dilihat
+            document.getElementById('game-5-container').scrollIntoView({behavior: 'smooth'});
+        }
+
+        // Logic Dashboard Guru
+        function loginGuru() {
+            const user = document.getElementById('guru-user').value;
+            const pass = document.getElementById('guru-pass').value;
+            const err = document.getElementById('g6-login-err');
+
+            if (user === 'Bangkit09' && pass === 'Bangkit09') {
+                err.classList.add('hidden');
+                document.getElementById('g6-login').classList.add('hidden');
+                document.getElementById('g6-dashboard').classList.remove('hidden');
+                
+                // Clear inputs
+                document.getElementById('guru-user').value = '';
+                document.getElementById('guru-pass').value = '';
+
+                // Tarik data dari Database Firebase
+                if(window.listenEvaluationsDB) {
+                    window.listenEvaluationsDB((data) => {
+                        renderTabelEvaluasi(data);
+                    });
+                } else {
+                    renderTabelEvaluasi([]); // Fallback jika tidak jalan
+                }
+            } else {
+                err.classList.remove('hidden');
+            }
+        }
+
+        function keluarGuru() {
+            document.getElementById('g6-dashboard').classList.add('hidden');
+            document.getElementById('g6-login').classList.remove('hidden');
+            if(window.stopListenEvaluationsDB) window.stopListenEvaluationsDB();
+        }
+
+        function renderTabelEvaluasi(data) {
+            const tbody = document.getElementById('eval-table-body');
+            tbody.innerHTML = '';
+            
+            if(!data || data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" class="p-6 text-center text-slate-500 italic">Belum ada data evaluasi siswa yang masuk.</td></tr>';
+                return;
+            }
+
+            data.forEach(item => {
+                const dateObj = new Date(item.waktu);
+                const dateStr = isNaN(dateObj) ? '-' : dateObj.toLocaleString('id-ID');
+                const badgeColor = item.skor >= 7 ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700';
+                
+                tbody.innerHTML += `
+                    <tr class="hover:bg-slate-50 transition-colors">
+                        <td class="p-4 border-b border-slate-100 text-sm text-slate-600">${dateStr}</td>
+                        <td class="p-4 border-b border-slate-100 font-semibold text-slate-800">${item.nama}</td>
+                        <td class="p-4 border-b border-slate-100">${item.kelas}</td>
+                        <td class="p-4 border-b border-slate-100 text-slate-600">No. ${item.absen}</td>
+                        <td class="p-4 border-b border-slate-100 text-center">
+                            <span class="px-3 py-1 rounded-full font-bold text-sm ${badgeColor}">${item.skor} / 10</span>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+        
+        // Ekspos ke window agar bisa dipanggil oleh Listener Firebase
+        window.renderTabelEvaluasi = renderTabelEvaluasi;
+
+        // Drag and Drop Logic
+        function allowDrop(ev) {
+            ev.preventDefault();
+        }
+
+        function drag(ev) {
+            ev.dataTransfer.setData("text", ev.target.id);
+        }
+
+        function drop(ev) {
+            ev.preventDefault();
+            var data = ev.dataTransfer.getData("text");
+            var draggedEl = document.getElementById(data);
+            
+            // Allow dropping only in specific targets
+            if (ev.target.tagName === 'DIV' || ev.target.tagName === 'SPAN') {
+                if (ev.target.children.length === 0 || ev.target.id === 'drag-sources' || ev.target.id === 'word-bank' || ev.target.id === 'drag-sources-hots') {
+                    ev.target.appendChild(draggedEl);
+                    // Sesuaikan styling kembali bila dimasukkan ke target paragraf (inline)
+                    if(ev.target.tagName === 'SPAN') {
+                        draggedEl.className = "bg-slate-700 text-white px-2 py-0.5 rounded text-sm font-semibold inline-block cursor-move";
+                    } else if (ev.target.id === 'word-bank' || ev.target.id === 'drag-sources-hots') {
+                        draggedEl.className = "bg-slate-700 text-white px-3 py-1 rounded cursor-move font-semibold text-sm";
+                    } else if (ev.target.hasAttribute('data-target') && ev.target.closest('#game-5-container')) {
+                        draggedEl.className = "bg-slate-700 text-white px-2 py-0.5 rounded text-sm font-semibold cursor-move";
+                    }
+                }
+            }
+        }
+
+        function checkGame1() {
+            const targets = document.querySelectorAll('#game-1-container [data-target]');
+            let correct = 0;
+            targets.forEach(t => {
+                const expectedId = t.getAttribute('data-target');
+                if (t.children.length > 0 && t.children[0].id === expectedId) correct++;
+            });
+            const res = document.getElementById('g1-result');
+            res.innerText = `Skor: ${correct}/5 Benar!`;
+            res.className = correct === 5 ? "mt-3 font-bold text-emerald-600 text-lg" : "mt-3 font-bold text-amber-600 text-lg";
+            if (correct === 5) triggerConfetti();
+        }
+
+        function checkGame2() {
+            const targets = document.querySelectorAll('#game-2-container [data-target]');
+            let correct = 0;
+            targets.forEach(t => {
+                const expectedId = t.getAttribute('data-target');
+                if (t.children.length > 0 && t.children[0].id === expectedId) correct++;
+            });
+            const res = document.getElementById('g2-result');
+            res.innerText = `Skor: ${correct}/5 Benar!`;
+            res.className = correct === 5 ? "mt-3 font-bold text-emerald-600 text-lg" : "mt-3 font-bold text-amber-600 text-lg";
+            if (correct === 5) triggerConfetti();
+        }
+
+        function checkGame3() {
+            let correct = 0;
+            // Q1: X=6, Y=2
+            if(document.getElementById('fill-1').value.trim() === "6" && document.getElementById('fill-2').value.trim() === "2") correct++;
+            // Q2: Y=5
+            if(document.getElementById('fill-3').value.trim() === "5") correct++;
+            // Q3: X=-6, Y=2
+            if(document.getElementById('fill-4').value.trim() === "-6" && document.getElementById('fill-5').value.trim() === "2") correct++;
+            // Q4: X=-5, Y=-2
+            if(document.getElementById('fill-6').value.trim() === "-5" && document.getElementById('fill-7').value.trim() === "-2") correct++;
+            // Q5: X=-7
+            if(document.getElementById('fill-8').value.trim() === "-7") correct++;
+
+            const res = document.getElementById('g3-result');
+            res.innerText = `Skor: ${correct}/5 Benar!`;
+            res.className = correct === 5 ? "mt-3 font-bold text-emerald-600 text-lg" : "mt-3 font-bold text-amber-600 text-lg";
+            if (correct === 5) triggerConfetti();
+        }
+
+        function checkGame4() {
+            const ans = ["translasi", "refleksi", "dilatasi", "rotasi", "refleksi"];
+            let correct = 0;
+            for(let i=1; i<=5; i++) {
+                const val = document.getElementById('tg-' + i).value;
+                if (val === ans[i-1]) correct++;
+            }
+            const res = document.getElementById('g4-result');
+            res.innerText = `Skor: ${correct}/5 Benar!`;
+            res.className = correct === 5 ? "mt-3 font-bold text-emerald-600 text-lg" : "mt-3 font-bold text-amber-600 text-lg";
+            if (correct === 5) triggerConfetti();
+        }
+
+        function checkGame5() {
+            let correct = 0;
+            let feedbackHTML = `<h4 class="font-bold text-xl mb-4 border-b pb-2 text-slate-800"><i class="fas fa-clipboard-list mr-2"></i>Ringkasan & Pembahasan</h4>`;
+
+            // Fungsi pembantu untuk membuat kartu UI pembahasan tiap soal
+            function makeCard(qNum, isCorrect, userAns, trueAns, explanation) {
+                const bg = isCorrect ? 'bg-emerald-50 border-emerald-300' : 'bg-rose-50 border-rose-300';
+                const icon = isCorrect ? '<i class="fas fa-check-circle text-emerald-600"></i>' : '<i class="fas fa-times-circle text-rose-600"></i>';
+                return `
+                    <div class="p-4 border rounded-xl shadow-sm ${bg}">
+                        <div class="font-bold mb-3 text-lg">${icon} Soal ${qNum} ${isCorrect ? '<span class="text-emerald-700">(Benar)</span>' : '<span class="text-rose-700">(Salah)</span>'}</div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
+                            <div class="text-sm"><strong>Jawaban Anda:</strong> <span class="${isCorrect ? 'text-emerald-700' : 'text-rose-600 font-semibold'}">${userAns || '- (Kosong)'}</span></div>
+                            <div class="text-sm"><strong>Jawaban Benar:</strong> <span class="text-slate-800 font-semibold">${trueAns}</span></div>
+                        </div>
+                        <div class="text-sm bg-white p-3 rounded-lg border border-slate-200 text-slate-700"><strong>Pembahasan:</strong> ${explanation}</div>
+                    </div>
+                `;
+            }
+
+            // Loop melalui daftar soal yang ditugaskan ke murid ini
+            selectedEvalQuestions.forEach(q => {
+                let isCorrect = false;
+                let userAnsText = "- (Kosong)";
+                let trueAnsText = "";
+
+                if (q.type === 'pg') {
+                    const el = document.querySelector(`input[name="q${q.renderedNum}"]:checked`);
+                    const val = el ? parseInt(el.value) : -1;
+                    isCorrect = (val === q.ansIdx);
+                    if (val !== -1) userAnsText = q.opts[val];
+                    trueAnsText = q.opts[q.ansIdx];
+                }
+                else if (q.type === 'pgk') {
+                    let userChoices = [];
+                    let correctChoices = q.ansIdxs; 
+                    let allCorrect = true;
+                    q.opts.forEach((opt, i) => {
+                        const checked = document.getElementById(`q${q.renderedNum}_${i}`).checked;
+                        if (checked) userChoices.push(opt);
+                        const shouldBeChecked = correctChoices.includes(i);
+                        if (checked !== shouldBeChecked) allCorrect = false;
+                    });
+                    isCorrect = allCorrect;
+                    if (userChoices.length > 0) userAnsText = userChoices.join(', ');
+                    trueAnsText = correctChoices.map(i => q.opts[i]).join(', ');
+                }
+                else if (q.type === 'dd') {
+                    const dropZone = document.getElementById(`dd-drop-${q.renderedNum}`);
+                    if (dropZone && dropZone.children.length > 0) {
+                        userAnsText = dropZone.children[0].innerText;
+                    }
+                    isCorrect = (userAnsText === q.ans);
+                    trueAnsText = q.ans;
+                }
+                else if (q.type === 'bs') {
+                    const el = document.querySelector(`input[name="q${q.renderedNum}"]:checked`);
+                    const val = el ? el.value : null;
+                    isCorrect = (val === q.ans);
+                    if (val) userAnsText = val === 'T' ? 'Benar' : 'Salah';
+                    trueAnsText = q.ans === 'T' ? 'Benar' : 'Salah';
+                }
+
+                if (isCorrect) correct++;
+                feedbackHTML += makeCard(q.renderedNum, isCorrect, userAnsText, trueAnsText, q.exp);
+            });
+
+            // Simpan Ke Database
+            const nama = document.getElementById('eval-nama').value.trim();
+            const kelas = document.getElementById('eval-kelas').value.trim();
+            const absen = document.getElementById('eval-absen').value.trim();
+            
+            const studentData = {
+                nama: nama,
+                kelas: kelas,
+                absen: absen,
+                skor: correct,
+                waktu: new Date().toISOString()
+            };
+
+            if (window.saveEvaluationToDB) {
+                window.saveEvaluationToDB(studentData);
+            }
+
+            // Tampilkan hasil akhir
+            const res = document.getElementById('g5-result');
+            res.innerText = `Skor Evaluasi: ${correct}/10 Benar`;
+            res.className = correct === 10 ? "mt-4 font-bold text-emerald-600 text-2xl" : "mt-4 font-bold text-amber-600 text-xl";
+            
+            if (correct === 10) {
+                res.innerText += " 🎉 Luar Biasa! Sempurna!";
+                triggerConfetti();
+            } else if (correct >= 7) {
+                res.innerText += " 😊 Bagus, sedikit lagi!";
+            } else {
+                res.innerText += " 📝 Mari pelajari lagi konsepnya!";
+            }
+
+            // Tampilkan container feedback & sembunyikan tombol submit
+            document.getElementById('g5-feedback').innerHTML = feedbackHTML;
+            document.getElementById('g5-feedback').classList.remove('hidden');
+            document.getElementById('btn-submit-g5').classList.add('hidden');
+            document.getElementById('btn-retake-g5').classList.remove('hidden'); // Tampilkan tombol kerjakan ulang
+        }
+
+        // --- p5.js Canvas Integration ---
+        function setup() {
+            let container = document.getElementById('canvas-container');
+            let canvas = createCanvas(container.offsetWidth, container.offsetHeight);
+            canvas.parent('canvas-container');
+            textFont('Nunito');
+            textAlign(CENTER, CENTER);
+        }
+
+        function windowResized() {
+            let container = document.getElementById('canvas-container');
+            resizeCanvas(container.offsetWidth, container.offsetHeight);
+        }
+
+        // Helper to map cartesian coordinates to screen pixels
+        function mapX(x) { return width / 2 + x * gridSize; }
+        function mapY(y) { return height / 2 - y * gridSize; }
+
+        function draw() {
+            background(255);
+            drawGrid();
+
+            // Handle Animation logic
+            if (isAnimating) {
+                animProgress += 0.04; // Animation speed
+                if (animProgress >= 1) {
+                    animProgress = 1;
+                    isAnimating = false;
+                    currentVertices = animEndVertices.map(v => ({...v}));
+                    checkWinCondition();
+                } else {
+                    // Interpolate
+                    // Use easeOutCubic curve for smooth stopping
+                    let ease = 1 - Math.pow(1 - animProgress, 3);
+                    currentVertices = animStartVertices.map((v, i) => ({
+                        x: lerp(v.x, animEndVertices[i].x, ease),
+                        y: lerp(v.y, animEndVertices[i].y, ease),
+                        label: animEndVertices[i].label
+                    }));
+                }
+            }
+
+            // Draw target silhouette (if in challenge mode)
+            if (currentMode === 'challenge' && targetVertices.length > 0) {
+                drawShape(targetVertices, color(16, 185, 129, 60), color(16, 185, 129), true);
+            }
+
+            // Draw original shape (ghost)
+            if (currentMode === 'explore') {
+                drawShape(originalVertices, color(59, 130, 246, 30), color(59, 130, 246, 100), false);
+            }
+
+            // Draw current animated/final shape
+            let fillColor = isAnimating ? color(245, 158, 11, 150) : color(59, 130, 246, 200);
+            let strokeCol = isAnimating ? color(217, 119, 6) : color(37, 99, 235);
+            drawShape(currentVertices, fillColor, strokeCol, false, true);
+
+            // Draw hover coordinates
+            drawHoverCoordinate();
+        }
+
+        function drawGrid() {
+            strokeWeight(1);
+            let numX = width / 2 / gridSize;
+            let numY = height / 2 / gridSize;
+
+            // Draw minor grid lines
+            stroke(240);
+            for (let i = 0; i <= numX; i++) {
+                line(width/2 + i*gridSize, 0, width/2 + i*gridSize, height);
+                line(width/2 - i*gridSize, 0, width/2 - i*gridSize, height);
+            }
+            for (let i = 0; i <= numY; i++) {
+                line(0, height/2 + i*gridSize, width, height/2 + i*gridSize);
+                line(0, height/2 - i*gridSize, width, height/2 - i*gridSize);
+            }
+
+            // Draw Axes
+            stroke(148, 163, 184); // Tailwind slate-400
+            strokeWeight(2);
+            line(width/2, 0, width/2, height); // Y Axis
+            line(0, height/2, width, height/2); // X Axis
+            
+            // Labels for axes
+            fill(100);
+            noStroke();
+            textSize(12);
+            text("X", width - 15, height/2 - 15);
+            text("Y", width/2 + 15, 15);
+            
+            // Draw ticks and numbers every 5 units for clarity
+            for (let i = -Math.floor(numX); i <= numX; i++) {
+                if (i !== 0 && i % 2 === 0) {
+                    text(i, mapX(i), height/2 + 12);
+                }
+            }
+            for (let i = -Math.floor(numY); i <= numY; i++) {
+                if (i !== 0 && i % 2 === 0) {
+                    text(i, width/2 - 12, mapY(i));
+                }
+            }
+            text("0", width/2 - 10, height/2 + 10);
+        }
+
+        function drawShape(vertices, fillColor, strokeColor, isDashed = false, drawLabels = false) {
+            if (!vertices || vertices.length === 0) return;
+
+            push();
+            fill(fillColor);
+            stroke(strokeColor);
+            strokeWeight(2);
+            strokeJoin(ROUND);
+
+            if (isDashed) {
+                drawingContext.setLineDash([5, 5]);
+            } else {
+                drawingContext.setLineDash([]);
+            }
+
+            beginShape();
+            vertices.forEach(v => vertex(mapX(v.x), mapY(v.y)));
+            endShape(CLOSE);
+            
+            // Reset dash for labels and points
+            drawingContext.setLineDash([]);
+
+            // Draw points and labels
+            vertices.forEach(v => {
+                let px = mapX(v.x);
+                let py = mapY(v.y);
+                
+                // Point dot
+                fill(strokeColor);
+                noStroke();
+                circle(px, py, 6);
+
+                if (drawLabels) {
+                    fill(30, 41, 59); // slate-800
+                    textSize(14);
+                    textStyle(BOLD);
+                    // Determine offset based on center of shape
+                    let cx = vertices.reduce((sum, cv) => sum + cv.x, 0) / vertices.length;
+                    let cy = vertices.reduce((sum, cv) => sum + cv.y, 0) / vertices.length;
+                    
+                    let ox = v.x >= cx ? 12 : -12;
+                    let oy = v.y >= cy ? -12 : 12; // y is inverted graphically
+                    
+                    text(v.label, px + ox, py + oy);
+                }
+            });
+            pop();
+        }
+
+        function drawHoverCoordinate() {
+            // Check if mouse is in canvas
+            if (mouseX >= 0 && mouseX <= width && mouseY >= 0 && mouseY <= height) {
+                let cartX = Math.round(((mouseX - width / 2) / gridSize) * 10) / 10;
+                let cartY = Math.round(((height / 2 - mouseY) / gridSize) * 10) / 10;
+                
+                push();
+                fill(255, 255, 255, 200);
+                stroke(200);
+                rect(mouseX + 10, mouseY + 10, 60, 25, 4);
+                
+                fill(50);
+                noStroke();
+                textSize(12);
+                text(`(${cartX}, ${cartY})`, mouseX + 40, mouseY + 22);
+                pop();
+            }
+        }
+    </script>
+</body>
+</html>
